@@ -1,11 +1,10 @@
 {
-  "name": "openai-chatkit-sample-apps",
+  "name": "customer-support-stack",
   "private": true,
   "scripts": {
-    "cat-lounge": "npm --prefix examples/cat-lounge install && npm --prefix examples/cat-lounge start",
-    "customer-support": "npm --prefix examples/customer-support install && npm --prefix examples/customer-support start",
-    "news-guide": "npm --prefix examples/news-guide install && npm --prefix examples/news-guide start",
-    "metro-map": "npm --prefix examples/metro-map install && npm --prefix examples/metro-map start"
+    "start": "concurrently --kill-others-on-fail --names backend,frontend \"npm run backend\" \"npm run frontend\"",
+    "frontend": "npm --prefix frontend install && npm --prefix frontend run dev",
+    "backend": "./scripts/run-backend.sh"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

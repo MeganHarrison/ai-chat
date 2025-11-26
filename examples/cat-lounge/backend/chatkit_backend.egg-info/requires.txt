@@ -1,0 +1,9 @@
+fastapi<0.116,>=0.114.1
+uvicorn[standard]<0.37,>=0.36
+openai>=1.40
+openai-chatkit<2,>=1.1.2
+jinja2
+
+[dev]
+ruff<0.7,>=0.6.4
+mypy<2,>=1.8
