@@ -34,7 +34,7 @@ from openai.types.responses import (
 from pydantic import ValidationError
 from starlette.responses import JSONResponse
 
-from .airline_state import AirlineStateManager, CustomerProfile
+from .airline_state import AirlineStateManager
 from .meal_preferences import (
     SET_MEAL_PREFERENCE_ACTION_TYPE,
     SetMealPreferencePayload,
@@ -42,7 +42,9 @@ from .meal_preferences import (
     meal_preference_label,
 )
 from .memory_store import MemoryStore
-from .support_agent import state_manager, support_agent
+from .nutrition_store import NutritionProfile
+from .support_agent import state_manager, support_agent, nutrition_state
+from .supabase_history_store import SupabaseHistoryStore
 from .thread_item_converter import CustomerSupportThreadItemConverter
 from .title_agent import title_agent
 
@@ -50,28 +52,21 @@ DEFAULT_THREAD_ID = "demo_default_thread"
 logger = logging.getLogger(__name__)
 
 
-def _get_customer_profile_as_input_item(profile: CustomerProfile):
-    segments = []
-    for segment in profile.segments:
-        segments.append(
-            f"- {segment.flight_number} {segment.origin}->{segment.destination}"
-            f" on {segment.date} seat {segment.seat} ({segment.status})"
-        )
-    summary = "\n".join(segments)
-    timeline = profile.timeline[:3]
-    recent = "\n".join(f"  * {entry['entry']} ({entry['timestamp']})" for entry in timeline)
+def _get_customer_profile_as_input_item(profile: NutritionProfile):
     content = (
         "<CUSTOMER_PROFILE>\n"
-        f"Name: {profile.name} ({profile.loyalty_status})\n"
-        f"Loyalty ID: {profile.loyalty_id}\n"
-        f"Contact: {profile.email}, {profile.phone}\n"
-        f"Checked Bags: {profile.bags_checked}\n"
-        f"Meal Preference: {profile.meal_preference or 'Not set'}\n"
-        f"Special Assistance: {profile.special_assistance or 'None'}\n"
-        "Upcoming Segments:\n"
-        f"{summary}\n"
-        "Recent Service Timeline:\n"
-        f"{recent or '  * No service actions recorded yet.'}\n"
+        f"Name: {profile.name or 'Unknown'}\n"
+        f"Age: {profile.age or 'Unknown'}\n"
+        f"Gender: {profile.gender or 'Unknown'}\n"
+        f"Primary Goal: {profile.primary_goal or 'Unknown'}\n"
+        f"Cooking Preference: {profile.cooking_preference if profile.cooking_preference is not None else 'Unknown'}\n"
+        f"Eating Habits: {profile.eating_habits or 'Unknown'}\n"
+        f"Emotional Why: {profile.emotional_why or 'Unknown'}\n"
+        f"Support Level: {profile.support_level or 'Unknown'}\n"
+        f"Objection: {profile.objection or 'None recorded'}\n"
+        f"Recommended Plan: {profile.recommended_plan or 'Not set'}\n"
+        f"Returning User: {profile.returning_user}\n"
+        f"Last Seen: {profile.last_seen or 'Unknown'}\n"
         "</CUSTOMER_PROFILE>"
     )
 
@@ -85,7 +80,7 @@ def _get_customer_profile_as_input_item(profile: CustomerProfile):
 class CustomerSupportServer(ChatKitServer[dict[str, Any]]):
     def __init__(
         self,
-        agent_state: AirlineStateManager,
+        agent_state: Any,
     ) -> None:
         store = MemoryStore()
         super().__init__(store)
@@ -147,6 +142,22 @@ class CustomerSupportServer(ChatKitServer[dict[str, Any]]):
         input_user_message: UserMessageItem | None,
         context: dict[str, Any],
     ) -> AsyncIterator[ThreadStreamEvent]:
+        # Log incoming user message to history (Supabase messages or in-memory fallback)
+        if input_user_message is not None:
+            text_chunks = [c.text for c in input_user_message.content if hasattr(c, "text")]
+            msg_text = " ".join(text_chunks)
+            if history_store is not None:
+                history_store.append_turn(session_id=thread.id, role="user", content=msg_text)
+            else:
+                nutrition_state.append_session_message(
+                    session_id=thread.id,
+                    user_id=thread.id,
+                    turn={
+                        "role": "user",
+                        "text": msg_text,
+                        "ts": datetime.utcnow().isoformat(),
+                    },
+                )
         # Load all items from the thread to send as agent input.
         # Needed to ensure that the agent is aware of the full conversation
         # when generating a response.
@@ -157,9 +168,22 @@ class CustomerSupportServer(ChatKitServer[dict[str, Any]]):
         items = list(reversed(items_page.data))  # Runner expects last message last
 
         # Prepend customer profile as part of the agent input
-        profile = self.agent_state.get_profile(thread.id)
+        profile = nutrition_state.get_profile(thread.id)
         profile_item = _get_customer_profile_as_input_item(profile)
-        input_items = [profile_item] + (await self.thread_item_converter.to_agent_input(items))
+        history_items: list[AssistantMessageContent | ResponseInputContentParam] = []
+        if history_store is not None:
+            rows = history_store.load_recent(thread.id, limit=20)
+            for row in rows:
+                msg = row.get("message") or {}
+                role = msg.get("role")
+                text = msg.get("content")
+                ts = msg.get("ts", "")
+                if role == "assistant" and text:
+                    history_items.append(AssistantMessageContent(text=f"[history {ts}] {text}"))
+                elif role == "user" and text:
+                    history_items.append(ResponseInputTextParam(type="input_text", text=f"[history {ts}] {text}"))
+
+        input_items = [profile_item] + history_items + (await self.thread_item_converter.to_agent_input(items))
 
         agent_context = AgentContext(
             thread=thread,
@@ -174,6 +198,24 @@ class CustomerSupportServer(ChatKitServer[dict[str, Any]]):
         )
 
         async for event in stream_agent_response(agent_context, result):
+            # Log assistant responses for history
+            if isinstance(event, ThreadItemDoneEvent):
+                for content in getattr(event.item, "content", []):
+                    if hasattr(content, "text"):
+                        if history_store is not None:
+                            history_store.append_turn(
+                                session_id=thread.id, role="assistant", content=getattr(content, "text")
+                            )
+                        else:
+                            nutrition_state.append_session_message(
+                                session_id=thread.id,
+                                user_id=thread.id,
+                                turn={
+                                    "role": "assistant",
+                                    "text": getattr(content, "text"),
+                                    "ts": datetime.utcnow().isoformat(),
+                                },
+                            )
             yield event
 
         await updating_thread_title
@@ -206,6 +248,11 @@ class CustomerSupportServer(ChatKitServer[dict[str, Any]]):
 
 
 support_server = CustomerSupportServer(agent_state=state_manager)
+history_store: SupabaseHistoryStore | None = None
+try:
+    history_store = SupabaseHistoryStore()
+except Exception:
+    history_store = None
 
 
 app = FastAPI(title="ChatKit Customer Support API")
@@ -242,11 +289,49 @@ def _thread_param(thread_id: str | None) -> str:
 @app.get("/support/customer")
 async def customer_snapshot(
     thread_id: str | None = Query(None, description="ChatKit thread identifier"),
-    server: CustomerSupportServer = Depends(get_server),
 ) -> dict[str, Any]:
     key = _thread_param(thread_id)
-    data = server.agent_state.to_dict(key)
-    return {"customer": data}
+    profile = nutrition_state.get_profile(key)
+    return {"customer": profile.to_dict()}
+
+
+@app.get("/support/profile")
+async def get_profile(thread_id: str | None = Query(None, description="ChatKit thread identifier")) -> dict[str, Any]:
+    key = _thread_param(thread_id)
+    profile = nutrition_state.get_profile(key)
+    return {"profile": profile.to_dict()}
+
+
+@app.post("/support/profile")
+async def upsert_profile(
+    body: dict[str, Any],
+    thread_id: str | None = Query(None, description="ChatKit thread identifier"),
+) -> dict[str, Any]:
+    key = _thread_param(thread_id)
+    profile = nutrition_state.upsert_profile(key, body or {})
+    return {"profile": profile.to_dict()}
+
+
+@app.post("/support/recommend_plan")
+async def recommend_plan(
+    body: dict[str, Any],
+    thread_id: str | None = Query(None, description="ChatKit thread identifier"),
+) -> dict[str, Any]:
+    key = _thread_param(thread_id)
+    profile = nutrition_state.upsert_profile(key, body or {})
+    plan = nutrition_state.recommend_plan(profile)
+    return {"profile": profile.to_dict(), "plan": plan}
+
+
+@app.post("/support/rag_search")
+async def rag_search(
+    body: dict[str, Any],
+) -> dict[str, Any]:
+    query = body.get("query") or ""
+    category = body.get("category")
+    filters = body.get("filters")
+    results = nutrition_state.rag_search(query, category=category, filters=filters)
+    return {"query": query, "results": results}
 
 
 @app.get("/support/health")

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict
+from typing import Any, Dict
 
 from agents import Agent, RunContextWrapper, StopAtTools, function_tool
 from chatkit.agents import AgentContext
@@ -9,120 +9,117 @@ from chatkit.types import AssistantMessageContent, AssistantMessageItem, ThreadI
 
 from .airline_state import AirlineStateManager
 from .meal_preferences import build_meal_preference_widget
+from .nutrition_store import NutritionState
+from .supabase_store import SupabaseNutritionStore
 
 SUPPORT_AGENT_INSTRUCTIONS = """
-You are a friendly and efficient airline customer support agent for OpenSkies.
-You help elite flyers with seat changes, cancellations, checked bags, and
-special requests. Follow these guidelines:
+You are a Nutrition Solutions AI Sales Coach. You run a guided assessment, give bold/direct
+recommendations, handle off-route questions with RAG, and can hand off to a human when asked.
 
-- Acknowledge the customer's loyalty status and recent travel plans if you haven't
-  already done so.
-- When a task requires action, call the appropriate tool instead of describing
-  the change hypothetically.
-- After using a tool, confirm the outcome and offer next steps.
-- If you cannot fulfill a request, apologize and suggest an alternative.
-- Keep responses concise (2-3 sentences) unless extra detail is required.
-- For tool calls `cancel_trip` and `add_checked_bag`, ask the user for confirmation before proceeding.
+Flow (keep short, punchy, human):
+- Collect: name, primary goal (fat loss/muscle gain/recomp), age, gender, cooking preference,
+  eating habits, emotional why, support level (1-5), objection (price/time/taste/other).
+- Use the stored profile in <CUSTOMER_PROFILE> to avoid repeating known info.
+- When off-route: answer with facts (RAG) then offer to resume the guided flow.
+- Recommendation: Shred for fat_loss; Beast for muscle_gain; Recomp → ask lean vs build (default lean→Shred).
+  Variant: Spartan if cooks and support_level<=3; Gladiator otherwise. Format: "{Program} — {Variant}".
+- Tone: bold, direct, identity-focused coach; no hedging.
 
-Custom tags:
-- <CUSTOMER_PROFILE> - provides contexto on the customer's account and travel details.
+Tools you can call:
+- record_profile(field: str, value: str) – persist a single field to the profile.
+- record_objection(label: str, detail: str | None) – persist an objection.
+- recommend_plan() – compute the recommended plan and store it.
+- rag_search(query: str, category: str | None, filters: dict | None) – retrieve facts to answer off-route.
+- handoff(reason: str, contact: str | None) – request human follow-up.
 
-Available tools:
-- change_seat(flight_number: str, seat: str) – move the passenger to a new seat.
-- cancel_trip() – cancel the upcoming reservation and note the refund.
-- add_checked_bag() – add one checked bag to the itinerary.
-- meal_preference_list() – show meal options so the traveller can pick their preference.
-  Invoke this tool when the user requests to set or change their meal preference or option.
-- request_assistance(note: str) – record a special assistance request.
-
-Only use information provided in the customer context or tool results. Do not
-invent confirmation numbers or policy details.
+Always call record_profile/record_objection when you collect a new slot or objection. Use rag_search when off-route.
 """.strip()
 
 
-def build_support_agent(state_manager: AirlineStateManager) -> Agent[AgentContext]:
-    """Create the airline customer support agent with task-specific tools."""
+def build_support_agent(state_manager: AirlineStateManager, nutrition_state: NutritionState) -> Agent[AgentContext]:
+    """Create the Nutrition Solutions sales coach with task-specific tools."""
 
     def _thread_id(ctx: RunContextWrapper[AgentContext]) -> str:
         return ctx.context.thread.id
 
     @function_tool(
-        description_override="Move the passenger to a different seat on a flight.",
+        description_override="Persist a single field to the user profile.",
     )
-    async def change_seat(
+    async def record_profile(
         ctx: RunContextWrapper[AgentContext],
-        flight_number: str,
-        seat: str,
+        field: str,
+        value: str,
     ) -> Dict[str, str]:
-        try:
-            message = state_manager.change_seat(_thread_id(ctx), flight_number, seat)
-        except ValueError as exc:  # translate user errors
-            raise ValueError(str(exc)) from exc
-        return {"result": message}
+        nutrition_state.upsert_profile(_thread_id(ctx), {field: value})
+        return {"result": f"Stored {field}."}
 
     @function_tool(
-        description_override="Cancel the traveller's upcoming trip and note the refund.",
+        description_override="Persist an objection label and optional detail to the profile.",
     )
-    async def cancel_trip(ctx: RunContextWrapper[AgentContext]) -> Dict[str, str]:
-        message = state_manager.cancel_trip(_thread_id(ctx))
-        return {"result": message}
-
-    @function_tool(
-        description_override="Add a checked bag to the reservation.",
-    )
-    async def add_checked_bag(
+    async def record_objection(
         ctx: RunContextWrapper[AgentContext],
-    ) -> Dict[str, str | int]:
-        message = state_manager.add_bag(_thread_id(ctx))
-        profile = state_manager.get_profile(_thread_id(ctx))
-        return {"result": message, "bags_checked": profile.bags_checked}
+        label: str,
+        detail: str | None = None,
+    ) -> Dict[str, str | None]:
+        nutrition_state.upsert_profile(_thread_id(ctx), {"objection": label})
+        return {"result": f"Stored objection: {label}", "detail": detail}
 
     @function_tool(
-        description_override="Display the meal preference picker so the traveller can choose an option.",
+        description_override="Compute and store the recommended plan for the user.",
     )
-    async def meal_preference_list(
+    async def recommend_plan_tool(
         ctx: RunContextWrapper[AgentContext],
     ) -> Dict[str, str]:
-        await ctx.context.stream(
-            ThreadItemDoneEvent(
-                item=AssistantMessageItem(
-                    thread_id=ctx.context.thread.id,
-                    id=ctx.context.generate_id("message"),
-                    created_at=datetime.now(),
-                    content=[AssistantMessageContent(text="Please select your meal preference.")],
-                ),
-            )
-        )
-        widget = build_meal_preference_widget()
-        await ctx.context.stream_widget(widget)
-        return {"result": "Shared meal preference options with the traveller."}
+        profile = nutrition_state.get_profile(_thread_id(ctx))
+        plan = nutrition_state.recommend_plan(profile)
+        return {"result": plan["recommended_plan"]}
 
     @function_tool(
-        description_override="Note a special assistance request for airport staff.",
+        description_override="Query RAG documents to answer off-route questions.",
     )
-    async def request_assistance(
+    async def rag_search_tool(
         ctx: RunContextWrapper[AgentContext],
-        note: str,
-    ) -> Dict[str, str]:
-        message = state_manager.request_assistance(_thread_id(ctx), note)
-        return {"result": message}
+        query: str,
+        category: str | None = None,
+        filters: Dict[str, Any] | None = None,
+    ) -> Dict[str, Any]:
+        results = nutrition_state.rag_search(query, category=category, filters=filters)
+        return {"results": results}
+
+    @function_tool(
+        description_override="Request a human handoff and capture contact preference.",
+    )
+    async def handoff(
+        ctx: RunContextWrapper[AgentContext],
+        reason: str,
+        contact: str | None = None,
+    ) -> Dict[str, str | None]:
+        nutrition_state.upsert_profile(_thread_id(ctx), {"handoff_reason": reason, "handoff_contact": contact})
+        return {"result": "Escalated to human support.", "reason": reason, "contact": contact}
 
     tools = [
-        change_seat,
-        cancel_trip,
-        add_checked_bag,
-        meal_preference_list,
-        request_assistance,
+        record_profile,
+        record_objection,
+        recommend_plan_tool,
+        rag_search_tool,
+        handoff,
     ]
 
     return Agent[AgentContext](
         model="gpt-4.1-mini",
-        name="OpenSkies Concierge",
+        name="Nutrition Solutions Coach",
         instructions=SUPPORT_AGENT_INSTRUCTIONS,
         tools=tools,  # type: ignore[arg-type]
-        tool_use_behavior=StopAtTools(stop_at_tool_names=[meal_preference_list.name]),
+        tool_use_behavior=StopAtTools(stop_at_tool_names=[]),
     )
 
 
 state_manager = AirlineStateManager()
-support_agent = build_support_agent(state_manager)
+
+try:
+    _supabase_store = SupabaseNutritionStore()
+    nutrition_state: NutritionState | SupabaseNutritionStore = _supabase_store
+except Exception:
+    nutrition_state = NutritionState()
+
+support_agent = build_support_agent(state_manager, nutrition_state)
