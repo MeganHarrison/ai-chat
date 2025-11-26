@@ -1,31 +1,78 @@
-import { CalendarDays, Luggage, Mail, Phone, Utensils } from "lucide-react";
+import { FlameKindling, HeartPulse, Home, UserRound } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import clsx from "clsx";
 
-import type { CustomerProfile, TimelineEntry } from "../hooks/useCustomerContext";
+import type { NutritionProfile, PlanRecommendation } from "../hooks/useCustomerContext";
+import { ObjectionCapture } from "./ObjectionCapture";
+import { PlanCard } from "./PlanCard";
+import { HandoffBanner } from "./HandoffBanner";
+import { TransformationCarousel, type TestimonialItem } from "./TransformationCarousel";
 
 type CustomerContextPanelProps = {
-  profile: CustomerProfile | null;
+  profile: NutritionProfile | null;
   loading: boolean;
   error: string | null;
+  onRecommendPlan: () => void;
+  recommending?: boolean;
+  onSaveObjection: (value: string) => Promise<void>;
 };
 
-export function CustomerContextPanel({ profile, loading, error }: CustomerContextPanelProps) {
+const TRANSFORMATION_FIXTURES: TestimonialItem[] = [
+  {
+    id: "t1",
+    name: "Mia · down 18 lbs",
+    goal: "fat_loss",
+    gender: "female",
+    age_bracket: "31-45",
+    result: "Lost 18 lbs in 10 weeks",
+    blurb: "Busy mom of two. Shred Spartan kept meals simple and consistent.",
+  },
+  {
+    id: "t2",
+    name: "Carlos · added lean mass",
+    goal: "muscle_gain",
+    gender: "male",
+    age_bracket: "31-45",
+    result: "+7 lbs lean mass in 12 weeks",
+    blurb: "Beast Gladiator paired heavy lifts with macro guidance and accountability.",
+  },
+  {
+    id: "t3",
+    name: "Ari · recomposition",
+    goal: "recomp",
+    gender: "female",
+    age_bracket: "<=30",
+    result: "Lost 10 lbs fat while gaining strength",
+    blurb: "Dialed in protein targets and hydration cadence.",
+  },
+  {
+    id: "t4",
+    name: "Jordan · busy founder",
+    goal: "fat_loss",
+    gender: "male",
+    age_bracket: "46+",
+    result: "Dropped 14 lbs without long workouts",
+    blurb: "Gladiator playbook focused on travel-friendly meals and sleep.",
+  },
+];
+
+export function CustomerContextPanel({
+  profile,
+  loading,
+  error,
+  onRecommendPlan,
+  recommending,
+  onSaveObjection,
+}: CustomerContextPanelProps) {
   if (loading) {
     return (
       <section className="flex h-full flex-col gap-4 rounded-3xl border border-slate-200/60 bg-white/80 p-6 shadow-[0_45px_90px_-45px_rgba(15,23,42,0.5)] ring-1 ring-slate-200/60 backdrop-blur dark:border-slate-800/70 dark:bg-slate-900/70 dark:shadow-[0_45px_95px_-55px_rgba(15,23,42,0.85)] dark:ring-slate-800/60">
         <header>
-          <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">
-            Customer profile
-          </h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-300">
-            Loading customer data…
-          </p>
+          <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Coach snapshot</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-300">Loading profile…</p>
         </header>
-        <div className="flex flex-1 items-center justify-center">
-          <span className="text-sm text-slate-500 dark:text-slate-400">
-            Fetching the latest itinerary and services…
-          </span>
+        <div className="flex flex-1 items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+          Syncing Nutrition Solutions profile…
         </div>
       </section>
     );
@@ -35,7 +82,7 @@ export function CustomerContextPanel({ profile, loading, error }: CustomerContex
     return (
       <section className="flex h-full flex-col gap-4 rounded-3xl border border-rose-200 bg-rose-50/60 p-6 text-rose-700 shadow-sm dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
         <header>
-          <h2 className="text-xl font-semibold">Customer profile</h2>
+          <h2 className="text-xl font-semibold">Coach snapshot</h2>
         </header>
         <p className="text-sm">{error}</p>
       </section>
@@ -46,200 +93,141 @@ export function CustomerContextPanel({ profile, loading, error }: CustomerContex
     return null;
   }
 
+  const ageBracket = deriveAgeBracket(profile.age);
+  const plan: PlanRecommendation | undefined = profile.recommended_plan
+    ? {
+        program: inferProgram(profile.primary_goal),
+        variant: inferVariant(profile.support_level, profile.cooking_preference),
+        recommended_plan: profile.recommended_plan,
+      }
+    : undefined;
+  const checkoutUrl = plan?.recommended_plan
+    ? `https://nutrition-solutions.com/checkout?plan=${encodeURIComponent(plan.recommended_plan)}`
+    : undefined;
+  const planLabel = plan?.recommended_plan || (plan ? `${plan.program} — ${plan.variant}` : null);
+  const objectionLabel = profile.objection || null;
+  const shouldShowHandoff = (objectionLabel || "").toLowerCase().includes("human");
+
   return (
-    <section className="flex h-full flex-col gap-6 overflow-auto rounded-3xl border border-slate-200/60 bg-white/80 p-6 shadow-[0_45px_90px_-45px_rgba(15,23,42,0.5)] ring-1 ring-slate-200/60 backdrop-blur dark:border-slate-800/70 dark:bg-slate-900/70 dark:shadow-[0_45px_95px_-55px_rgba(15,23,42,0.85)] dark:ring-slate-800/60">
-      <header className="space-y-3">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+    <section className="flex h-full flex-col gap-4 overflow-auto rounded-3xl border border-slate-200/60 bg-white/90 p-6 shadow-[0_45px_90px_-45px_rgba(15,23,42,0.5)] ring-1 ring-slate-200/60 backdrop-blur dark:border-slate-800/70 dark:bg-slate-900/70 dark:shadow-[0_45px_95px_-55px_rgba(15,23,42,0.85)] dark:ring-slate-800/60">
+      <header className="space-y-2">
+        <p className="text-xs uppercase tracking-[0.2em] text-orange-500 dark:text-orange-300">Nutrition Solutions</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-blue-500 dark:text-blue-300">
-              Concierge customer
-            </p>
-            <h2 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">
-              {profile.name}
-            </h2>
-            <p className="text-sm text-blue-600 dark:text-blue-200">
-              {profile.loyalty_status}
+            <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{profile.name || "New client"}</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Goal: {profile.primary_goal || "not set"}
             </p>
           </div>
-          <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-200">
-            Loyalty ID: {profile.loyalty_id}
+          <div className="rounded-2xl border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-orange-700 dark:border-orange-900/60 dark:bg-orange-950/40 dark:text-orange-200">
+            {profile.returning_user ? "Returning" : "First session"}
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600 dark:text-slate-300">
-          <span className="inline-flex items-center gap-2">
-            <Mail className="h-4 w-4" aria-hidden /> {profile.email}
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <Phone className="h-4 w-4" aria-hidden /> {profile.phone}
-          </span>
+        <p className="text-xs uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+          Last seen {profile.last_seen ? formatDate(profile.last_seen) : "—"}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Tag tone={planLabel ? "primary" : "muted"}>
+            {planLabel ? `Plan: ${planLabel}` : "Plan not set"}
+          </Tag>
+          <Tag tone={objectionLabel ? "warn" : "muted"}>
+            {objectionLabel ? `Objection: ${objectionLabel}` : "No objection captured"}
+          </Tag>
         </div>
       </header>
 
-      <section className="rounded-2xl bg-slate-50/80 p-4 dark:bg-slate-900/60">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
-          Upcoming itinerary
-        </h3>
-        <div className="mt-4 space-y-3">
-          {profile.segments.map((segment) => (
-            <article
-              key={segment.flight_number}
-              className="rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm transition hover:border-blue-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900/70"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                    {segment.flight_number}
-                  </p>
-                  <h4 className="text-base font-semibold text-slate-800 dark:text-slate-100">
-                    {segment.origin} → {segment.destination}
-                  </h4>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {formatDate(segment.date)} · {segment.departure_time} – {segment.arrival_time}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium text-blue-600 dark:text-blue-300">
-                    Seat {segment.seat}
-                  </p>
-                  <p
-                    className={clsx(
-                      "text-xs font-semibold uppercase tracking-wide",
-                      segment.status === "Cancelled"
-                        ? "text-rose-500"
-                        : "text-emerald-500",
-                    )}
-                  >
-                    {segment.status}
-                  </p>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
+      <section className="grid gap-3 sm:grid-cols-2">
+        <InfoPill icon={UserRound} label="Age">{profile.age ? `${profile.age}` : "Not set"}</InfoPill>
+        <InfoPill icon={Home} label="Cooking preference">{formatCooking(profile.cooking_preference)}</InfoPill>
+        <InfoPill icon={HeartPulse} label="Support level">{profile.support_level ?? "Not set"}</InfoPill>
+        <InfoPill icon={FlameKindling} label="Why now">{profile.emotional_why || "Not captured"}</InfoPill>
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-3">
-        <InfoPill icon={Luggage} label="Checked bags">
-          {profile.bags_checked}
-        </InfoPill>
-        <InfoPill icon={Utensils} label="Meal preference">
-          {profile.meal_preference || "Not set"}
-        </InfoPill>
-        <InfoPill icon={CalendarDays} label="Assistance">
-          {profile.special_assistance || "None"}
-        </InfoPill>
-      </section>
+      <PlanCard
+        recommendation={plan}
+        goal={profile.primary_goal}
+        supportLevel={profile.support_level}
+        cookingPreference={profile.cooking_preference}
+        onGenerate={onRecommendPlan}
+        generating={recommending}
+        checkoutUrl={checkoutUrl}
+      />
 
-      <section className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-white/90 dark:border-slate-800/70 dark:bg-slate-900/70">
-        <header className="border-b border-slate-200/70 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800/70 dark:text-slate-300">
-          Recent concierge actions
-        </header>
-        <Timeline entries={profile.timeline} />
-      </section>
+      <TransformationCarousel
+        items={TRANSFORMATION_FIXTURES}
+        goal={profile.primary_goal || undefined}
+        gender={profile.gender || undefined}
+        age_bracket={ageBracket}
+      />
 
-      <section>
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
-          Tier benefits
-        </h3>
-        <ul className="mt-3 grid gap-2 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-2">
-          {profile.tier_benefits.map((benefit) => (
-            <li
-              key={benefit}
-              className="rounded-xl border border-slate-200/70 bg-white/90 px-3 py-2 shadow-sm dark:border-slate-800/70 dark:bg-slate-900/70"
-            >
-              {benefit}
-            </li>
-          ))}
-        </ul>
-      </section>
+      <ObjectionCapture value={profile.objection} onSubmit={onSaveObjection} />
+      {shouldShowHandoff ? <HandoffBanner reason={objectionLabel} /> : null}
     </section>
   );
 }
 
-function InfoPill({
-  icon: Icon,
-  label,
-  children,
-}: {
-  icon: LucideIcon;
-  label: string;
-  children: React.ReactNode;
-}) {
+function InfoPill({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-slate-200/60 bg-white/90 px-4 py-3 shadow-sm dark:border-slate-800/70 dark:bg-slate-900/70">
-      <Icon className="h-5 w-5 text-blue-500 dark:text-blue-300" aria-hidden />
+      <Icon className="h-5 w-5 text-orange-500" aria-hidden />
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-          {label}
-        </p>
-        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-          {children}
-        </p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{label}</p>
+        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{children}</p>
       </div>
     </div>
   );
 }
 
-function Timeline({ entries }: { entries: TimelineEntry[] }) {
-  if (!entries.length) {
-    return (
-      <div className="flex flex-1 items-center justify-center px-6 text-sm text-slate-500 dark:text-slate-400">
-        No concierge actions recorded yet.
-      </div>
-    );
-  }
+function Tag({ children, tone }: { children: React.ReactNode; tone: "primary" | "warn" | "muted" }) {
+  const toneClass =
+    tone === "primary"
+      ? "border-orange-200 bg-orange-50 text-orange-800 dark:border-orange-900/40 dark:bg-orange-950/40 dark:text-orange-100"
+      : tone === "warn"
+        ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100"
+        : "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800/60 dark:bg-slate-900/70 dark:text-slate-200";
 
   return (
-    <ul className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
-      {entries.map((entry) => (
-        <li
-          key={`${entry.timestamp}-${entry.entry}`}
-          className={clsx(
-            "rounded-xl border px-4 py-3 text-sm leading-relaxed",
-            timelineTone(entry.kind),
-          )}
-        >
-          <p className="font-medium text-slate-700 dark:text-slate-100">{entry.entry}</p>
-          <p className="text-xs uppercase tracking-wide text-slate-400 dark:text-slate-500">
-            {formatTimestamp(entry.timestamp)}
-          </p>
-        </li>
-      ))}
-    </ul>
+    <span
+      className={clsx(
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide",
+        toneClass,
+      )}
+    >
+      {children}
+    </span>
   );
 }
 
-function timelineTone(kind: string | undefined) {
-  switch (kind) {
-    case "success":
-      return "border-emerald-200/70 bg-emerald-50/80 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-900/30 dark:text-emerald-200";
-    case "warning":
-      return "border-amber-200/70 bg-amber-50/80 text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/30 dark:text-amber-200";
-    case "error":
-      return "border-rose-200/70 bg-rose-50/80 text-rose-700 dark:border-rose-900/40 dark:bg-rose-900/30 dark:text-rose-200";
-    default:
-      return "border-slate-200/70 bg-slate-50/90 text-slate-600 dark:border-slate-800/70 dark:bg-slate-900/60 dark:text-slate-200";
-  }
+function deriveAgeBracket(age?: number | null) {
+  if (!age) return null;
+  if (age <= 30) return "<=30";
+  if (age <= 45) return "31-45";
+  return "46+";
 }
 
-function formatTimestamp(value: string): string {
+function formatCooking(value?: boolean | null) {
+  if (value === true) return "Cooks most meals";
+  if (value === false) return "Prefers done-for-you";
+  return "Not set";
+}
+
+function formatDate(value: string) {
   try {
-    const date = new Date(value);
-    return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    return new Date(value).toLocaleString();
   } catch (err) {
     return value;
   }
 }
 
-function formatDate(value: string): string {
-  try {
-    return new Date(value).toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  } catch (err) {
-    return value;
-  }
+function inferProgram(goal?: string | null) {
+  if (!goal) return undefined;
+  if (goal.toLowerCase().includes("muscle")) return "Beast";
+  if (goal.toLowerCase().includes("recomp")) return "Shred";
+  return "Shred";
 }
 
+function inferVariant(support?: number | null, cooking?: boolean | null) {
+  if (!support && cooking === undefined) return undefined;
+  if ((support ?? 0) >= 4 || cooking === false) return "Gladiator";
+  return "Spartan";
+}

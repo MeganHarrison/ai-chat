@@ -1,6 +1,7 @@
 import { StartScreenPrompt } from "@openai/chatkit";
 
 export const THEME_STORAGE_KEY = "customer-support-theme";
+export const THREAD_STORAGE_KEY = "ns-chat-thread";
 
 const SUPPORT_API_BASE =
   import.meta.env.VITE_SUPPORT_API_BASE ?? "/support";
@@ -18,33 +19,41 @@ export const SUPPORT_CHATKIT_API_URL =
   import.meta.env.VITE_SUPPORT_CHATKIT_API_URL ??
   `${SUPPORT_API_BASE}/chatkit`;
 
-export const SUPPORT_CUSTOMER_URL =
-  import.meta.env.VITE_SUPPORT_CUSTOMER_URL ??
-  `${SUPPORT_API_BASE}/customer`;
+export const SUPPORT_PROFILE_URL =
+  import.meta.env.VITE_SUPPORT_PROFILE_URL ??
+  `${SUPPORT_API_BASE}/profile`;
+
+export const SUPPORT_RECOMMEND_PLAN_URL =
+  import.meta.env.VITE_SUPPORT_RECOMMEND_PLAN_URL ??
+  `${SUPPORT_API_BASE}/recommend_plan`;
+
+export const SUPPORT_RAG_SEARCH_URL =
+  import.meta.env.VITE_SUPPORT_RAG_SEARCH_URL ??
+  `${SUPPORT_API_BASE}/rag_search`;
 
 export const SUPPORT_GREETING =
   import.meta.env.VITE_SUPPORT_GREETING ??
-  "How can I make your trip smoother today?";
+  "I’m your Nutrition Solutions coach. I’ll guide you through a quick intake and build your plan.";
 
 export const SUPPORT_STARTER_PROMPTS: StartScreenPrompt[] = [
   {
-    label: "Change my seat",
-    prompt: "Can you move me to seat 14C on flight OA476?",
-    icon: "lightbulb",
-  },
-  {
-    label: "Cancel trip",
-    prompt: "I need to cancel my trip and request a refund.",
+    label: "Start my plan",
+    prompt: "Let’s build my Nutrition Solutions plan. My goal is fat loss.",
     icon: "sparkle",
   },
   {
-    label: "Add checked bag",
-    prompt: "Add one more checked bag to my reservation.",
-    icon: "suitcase",
+    label: "I’m here to gain muscle",
+    prompt: "I want to add lean muscle. Let’s set up my meal plan and schedule.",
+    icon: "activity",
   },
   {
-    label: "Set a meal preference",
-    prompt: "Set a meal preference for my trip.",
-    icon: "notebook-pencil",
+    label: "I have questions first",
+    prompt: "Before we start, I have a question about pricing and results.",
+    icon: "question-mark-circle",
+  },
+  {
+    label: "Show real transformations",
+    prompt: "Can you show me transformations for women in their 30s focused on fat loss?",
+    icon: "fire",
   },
 ];

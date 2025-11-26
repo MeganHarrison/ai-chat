@@ -1,0 +1,180 @@
+{
+  "version": "1.0",
+  "name": "Client Transformations Carousel",
+  "template": "{\"type\":\"Card\",\"size\":\"md\",\"padding\":0,\"children\":[{\"type\":\"Transition\",\"children\":[{\"type\":\"Col\",\"key\":{{ (current.id) | tojson }},\"children\":[{\"type\":\"Image\",\"src\":{{ (current.image) | tojson }},\"alt\":{{ ((current.name ~ \" transformation\")) | tojson }},\"aspectRatio\":{{ ((4 / 5)) | tojson }},\"fit\":\"cover\",\"flush\":true},{\"type\":\"Col\",\"padding\":4,\"gap\":2,\"children\":[{\"type\":\"Text\",\"value\":{{ (current.quote) | tojson }},\"size\":\"sm\",\"maxLines\":4},{\"type\":\"Text\",\"value\":{{ (current.name) | tojson }},\"size\":\"sm\",\"color\":\"secondary\"},{\"type\":\"Row\",\"align\":\"center\",\"children\":[{\"type\":\"Button\",\"iconStart\":\"chevron-left\",\"uniform\":true,\"variant\":\"outline\",\"onClickAction\":{\"type\":\"carousel.go\",\"payload\":{\"index\":{{ (prevIndex) | tojson }}}}},{\"type\":\"Spacer\"},{\"type\":\"Caption\",\"value\":{{ (progress) | tojson }},\"color\":\"tertiary\"},{\"type\":\"Spacer\"},{\"type\":\"Button\",\"iconStart\":\"chevron-right\",\"uniform\":true,\"variant\":\"outline\",\"onClickAction\":{\"type\":\"carousel.go\",\"payload\":{\"index\":{{ (nextIndex) | tojson }}}}}]}]}]}]}]}",
+  "jsonSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "image": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "quote": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "image",
+            "name",
+            "quote"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "current": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "quote": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "image",
+          "name",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "index": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "total": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "prevIndex": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "nextIndex": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "progress": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "items",
+      "current",
+      "index",
+      "total",
+      "prevIndex",
+      "nextIndex",
+      "progress"
+    ],
+    "additionalProperties": false
+  },
+  "outputJsonPreview": {
+    "type": "Card",
+    "size": "md",
+    "padding": 0,
+    "children": [
+      {
+        "type": "Transition",
+        "children": {
+          "type": "Col",
+          "key": "1",
+          "children": [
+            {
+              "type": "Image",
+              "src": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg",
+              "alt": "Brian W transformation",
+              "aspectRatio": 0.8,
+              "fit": "cover",
+              "flush": true
+            },
+            {
+              "type": "Col",
+              "padding": 4,
+              "gap": 2,
+              "children": [
+                {
+                  "type": "Text",
+                  "value": "My abs look better now at 40 than they did at 20! N.S. helped me take back control.",
+                  "size": "sm",
+                  "maxLines": 4
+                },
+                {
+                  "type": "Text",
+                  "value": "Brian W",
+                  "size": "sm",
+                  "color": "secondary"
+                },
+                {
+                  "type": "Row",
+                  "align": "center",
+                  "children": [
+                    {
+                      "type": "Button",
+                      "iconStart": "chevron-left",
+                      "uniform": true,
+                      "variant": "outline",
+                      "onClickAction": {
+                        "type": "carousel.go",
+                        "payload": {
+                          "index": 1
+                        }
+                      }
+                    },
+                    {
+                      "type": "Spacer"
+                    },
+                    {
+                      "type": "Caption",
+                      "value": "1 / 2",
+                      "color": "tertiary"
+                    },
+                    {
+                      "type": "Spacer"
+                    },
+                    {
+                      "type": "Button",
+                      "iconStart": "chevron-right",
+                      "uniform": true,
+                      "variant": "outline",
+                      "onClickAction": {
+                        "type": "carousel.go",
+                        "payload": {
+                          "index": 1
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "encodedWidget": "eyJpZCI6IjJkMDBkOWE4LWI2MGUtNDA1ZC04MjkzLWRhYTEzZWUzNWU2ZiIsIm5hbWUiOiJDbGllbnQgVHJhbnNmb3JtYXRpb25zIENhcm91c2VsIiwidmlldyI6IjxDYXJkIHNpemU9XCJtZFwiIHBhZGRpbmc9ezB9PlxuICA8VHJhbnNpdGlvbj5cbiAgICA8Q29sIGtleT17Y3VycmVudC5pZH0-XG4gICAgICA8SW1hZ2VcbiAgICAgICAgc3JjPXtjdXJyZW50LmltYWdlfVxuICAgICAgICBhbHQ9e2Ake2N1cnJlbnQubmFtZX0gdHJhbnNmb3JtYXRpb25gfVxuICAgICAgICBhc3BlY3RSYXRpbz17NCAvIDV9XG4gICAgICAgIGZpdD1cImNvdmVyXCJcbiAgICAgICAgZmx1c2hcbiAgICAgIC8-XG4gICAgICA8Q29sIHBhZGRpbmc9ezR9IGdhcD17Mn0-XG4gICAgICAgIDxUZXh0IHZhbHVlPXtjdXJyZW50LnF1b3RlfSBzaXplPVwic21cIiBtYXhMaW5lcz17NH0gLz5cbiAgICAgICAgPFRleHQgdmFsdWU9e2N1cnJlbnQubmFtZX0gc2l6ZT1cInNtXCIgY29sb3I9XCJzZWNvbmRhcnlcIiAvPlxuICAgICAgICA8Um93IGFsaWduPVwiY2VudGVyXCI-XG4gICAgICAgICAgPEJ1dHRvblxuICAgICAgICAgICAgaWNvblN0YXJ0PVwiY2hldnJvbi1sZWZ0XCJcbiAgICAgICAgICAgIHVuaWZvcm1cbiAgICAgICAgICAgIHZhcmlhbnQ9XCJvdXRsaW5lXCJcbiAgICAgICAgICAgIG9uQ2xpY2tBY3Rpb249e3tcbiAgICAgICAgICAgICAgdHlwZTogXCJjYXJvdXNlbC5nb1wiLFxuICAgICAgICAgICAgICBwYXlsb2FkOiB7IGluZGV4OiBwcmV2SW5kZXggfSxcbiAgICAgICAgICAgIH19XG4gICAgICAgICAgLz5cbiAgICAgICAgICA8U3BhY2VyIC8-XG4gICAgICAgICAgPENhcHRpb24gdmFsdWU9e3Byb2dyZXNzfSBjb2xvcj1cInRlcnRpYXJ5XCIgLz5cbiAgICAgICAgICA8U3BhY2VyIC8-XG4gICAgICAgICAgPEJ1dHRvblxuICAgICAgICAgICAgaWNvblN0YXJ0PVwiY2hldnJvbi1yaWdodFwiXG4gICAgICAgICAgICB1bmlmb3JtXG4gICAgICAgICAgICB2YXJpYW50PVwib3V0bGluZVwiXG4gICAgICAgICAgICBvbkNsaWNrQWN0aW9uPXt7XG4gICAgICAgICAgICAgIHR5cGU6IFwiY2Fyb3VzZWwuZ29cIixcbiAgICAgICAgICAgICAgcGF5bG9hZDogeyBpbmRleDogbmV4dEluZGV4IH0sXG4gICAgICAgICAgICB9fVxuICAgICAgICAgIC8-XG4gICAgICAgIDwvUm93PlxuICAgICAgPC9Db2w-XG4gICAgPC9Db2w-XG4gIDwvVHJhbnNpdGlvbj5cbjwvQ2FyZD4iLCJkZWZhdWx0U3RhdGUiOnsiaXRlbXMiOlt7ImlkIjoiMSIsImltYWdlIjoiaHR0cHM6Ly91cGxvYWQud2lraW1lZGlhLm9yZy93aWtpcGVkaWEvY29tbW9ucy8zLzNmL1BsYWNlaG9sZGVyX3ZpZXdfdmVjdG9yLnN2ZyIsIm5hbWUiOiJCcmlhbiBXIiwicXVvdGUiOiJNeSBhYnMgbG9vayBiZXR0ZXIgbm93IGF0IDQwIHRoYW4gdGhleSBkaWQgYXQgMjAhIE4uUy4gaGVscGVkIG1lIHRha2UgYmFjayBjb250cm9sLiJ9LHsiaWQiOiIyIiwiaW1hZ2UiOiJodHRwczovL3VwbG9hZC53aWtpbWVkaWEub3JnL3dpa2lwZWRpYS9jb21tb25zLzEvMTQvTm9fSW1hZ2VfQXZhaWxhYmxlLmpwZyIsIm5hbWUiOiJDYXNleSBSIiwicXVvdGUiOiJEb3duIDI1IGxicyBhbmQgc3Ryb25nZXIgdGhhbiBldmVyLiJ9XSwiY3VycmVudCI6eyJpZCI6IjEiLCJpbWFnZSI6Imh0dHBzOi8vdXBsb2FkLndpa2ltZWRpYS5vcmcvd2lraXBlZGlhL2NvbW1vbnMvMy8zZi9QbGFjZWhvbGRlcl92aWV3X3ZlY3Rvci5zdmciLCJuYW1lIjoiQnJpYW4gVyIsInF1b3RlIjoiTXkgYWJzIGxvb2sgYmV0dGVyIG5vdyBhdCA0MCB0aGFuIHRoZXkgZGlkIGF0IDIwISBOLlMuIGhlbHBlZCBtZSB0YWtlIGJhY2sgY29udHJvbC4ifSwiaW5kZXgiOjAsInRvdGFsIjoyLCJwcmV2SW5kZXgiOjEsIm5leHRJbmRleCI6MSwicHJvZ3Jlc3MiOiIxIC8gMiJ9LCJzdGF0ZXMiOltdLCJzY2hlbWEiOiJpbXBvcnQgeyB6IH0gZnJvbSBcInpvZFwiXG5cbmNvbnN0IFRyYW5zZm9ybSA9IHouc3RyaWN0T2JqZWN0KHtcbiAgaWQ6IHouc3RyaW5nKCksXG4gIGltYWdlOiB6LnN0cmluZygpLFxuICBuYW1lOiB6LnN0cmluZygpLFxuICBxdW90ZTogei5zdHJpbmcoKSxcbn0pXG5cbmNvbnN0IFdpZGdldFN0YXRlID0gei5zdHJpY3RPYmplY3Qoe1xuICBpdGVtczogei5hcnJheShUcmFuc2Zvcm0pLFxuICBjdXJyZW50OiBUcmFuc2Zvcm0sXG4gIGluZGV4OiB6Lm51bWJlcigpLmludCgpLm1pbigwKSxcbiAgdG90YWw6IHoubnVtYmVyKCkuaW50KCkubWluKDEpLFxuICBwcmV2SW5kZXg6IHoubnVtYmVyKCkuaW50KCkubWluKDApLFxuICBuZXh0SW5kZXg6IHoubnVtYmVyKCkuaW50KCkubWluKDApLFxuICBwcm9ncmVzczogei5zdHJpbmcoKSxcbn0pXG5cbmV4cG9ydCBkZWZhdWx0IFdpZGdldFN0YXRlIiwianNvblNjaGVtYSI6e30sInNjaGVtYU1vZGUiOiJ6b2QiLCJzY2hlbWFWYWxpZGl0eSI6InZhbGlkIiwidmlld1ZhbGlkaXR5IjoidmFsaWQiLCJkZWZhdWx0U3RhdGVWYWxpZGl0eSI6InZhbGlkIn0"
+}

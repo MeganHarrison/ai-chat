@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ChatKit, useChatKit } from "@openai/chatkit-react";
 import type { ColorScheme } from "../hooks/useColorScheme";
 import {
@@ -5,6 +6,7 @@ import {
   SUPPORT_CHATKIT_API_URL,
   SUPPORT_GREETING,
   SUPPORT_STARTER_PROMPTS,
+  THREAD_STORAGE_KEY,
 } from "../lib/config";
 
 type ChatKitPanelProps = {
@@ -13,38 +15,49 @@ type ChatKitPanelProps = {
   onResponseCompleted: () => void;
 };
 
-export function ChatKitPanel({
-  theme,
-  onThreadChange,
-  onResponseCompleted,
-}: ChatKitPanelProps) {
+export function ChatKitPanel({ theme, onThreadChange, onResponseCompleted }: ChatKitPanelProps) {
+  const [initialThread] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(THREAD_STORAGE_KEY);
+  });
+
+  const persistThread = (threadId: string | null) => {
+    if (typeof window === "undefined") return;
+    if (threadId) {
+      window.localStorage.setItem(THREAD_STORAGE_KEY, threadId);
+    } else {
+      window.localStorage.removeItem(THREAD_STORAGE_KEY);
+    }
+  };
 
   const chatkit = useChatKit({
     api: {
       url: SUPPORT_CHATKIT_API_URL,
       domainKey: SUPPORT_CHATKIT_API_DOMAIN_KEY,
     },
+    initialThread,
     theme: {
       colorScheme: theme,
       color: {
         grayscale: {
           hue: 220,
-          tint: 6,
-          shade: theme === "dark" ? -1 : -4,
+          tint: 5,
+          shade: theme === "dark" ? -2 : -5,
         },
         accent: {
-          primary: theme === "dark" ? "#f8fafc" : "#0f172a",
+          primary: theme === "dark" ? "#fef2e8" : "#f97316",
           level: 1,
         },
       },
-      radius: "round",
+      radius: "xl",
     },
     startScreen: {
       greeting: SUPPORT_GREETING,
       prompts: SUPPORT_STARTER_PROMPTS,
+      title: "Nutrition Solutions AI Coach",
     },
     composer: {
-      placeholder: "Ask the concierge a question",
+      placeholder: "Ask about your plan, meals, pricing, or anything off-script",
     },
     threadItemActions: {
       feedback: false,
@@ -53,10 +66,11 @@ export function ChatKitPanel({
       onResponseCompleted();
     },
     onThreadChange: ({ threadId }) => {
+      persistThread(threadId ?? null);
       onThreadChange(threadId ?? null);
     },
     onError: ({ error }) => {
-      // ChatKit displays surfaced errors; we keep logging for debugging.
+      // ChatKit surfaces errors in the UI; keep console logging for debugging.
       console.error("ChatKit error", error);
     },
   });
