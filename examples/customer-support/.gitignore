@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+
+# Environment and secrets
+.env
+
+# Local tooling/config
+.codex/
+.DS_Store
+
+# Build output
+dist/
+build/
